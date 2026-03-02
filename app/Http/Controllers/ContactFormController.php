@@ -4,9 +4,11 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
+use App\Models\ContactForm;
+
 class ContactFormController extends Controller
 {
-   public function store(Request $request)
+    public function store(Request $request)
     {
         $validator = Validator::make($request->all(), [
             'first_name'   => 'required|string|max:100',
@@ -25,16 +27,22 @@ class ContactFormController extends Controller
             ], 422);
         }
 
-        // Optional: Save to DB
-        // ContactForm::create($validator->validated());
-
-        // Optional: Send email
-        // Mail::to('admin@example.com')->send(new ContactFormMail($validator->validated()));
+        // ✅ Save to DB
+        $contact = ContactForm::create($validator->validated());
 
         return response()->json([
             'success' => true,
             'message' => 'Form submitted successfully.',
-            'data'    => $validator->validated(),
+            'data'    => $contact,
+        ], 201);
+    }
+    public function GetContact()
+    {
+        $contactform = ContactForm::all();
+        return response()->json([
+            'success' => true,
+            'message' => 'Contact Form Get successfully.',
+            'data'    => $contactform,
         ], 201);
     }
 }
