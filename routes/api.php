@@ -5,6 +5,7 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\ContactFormController;
 use App\Http\Controllers\ThreadController;
 use App\Http\Controllers\GoogleAuthController;
+use Illuminate\Support\Facades\Validator;
 
     Route::middleware('auth:sanctum')->group(function () {
 
@@ -16,9 +17,8 @@ use App\Http\Controllers\GoogleAuthController;
         Route::put('/threads/{id}', [ThreadController::class, 'update']);    // Update thread title
         Route::delete('/threads/{id}', [ThreadController::class, 'destroy']); // Delete thread
         Route::post('/threads/{id}/message', [ThreadController::class, 'sendMessage']);     // user message
-        Route::post('/threads/{id}/response', [ThreadController::class, 'storeResponse']); // model response 
-    });     
+        Route::post('/threads/{id}/response', [ThreadController::class, 'storeResponse']); // model response
+    });
     Route::post('/contact', [ContactFormController::class, 'store']);
     Route::get('/get-contact', [ContactFormController::class, 'GetContact']);
-    Route::get('auth/google/redirect',  [GoogleAuthController::class, 'redirect']);
-    Route::get('auth/google/callback',  [GoogleAuthController::class, 'callback']);
+    Route::post('/auth/login', [GoogleAuthController::class, 'login']);
