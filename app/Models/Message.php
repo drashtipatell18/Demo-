@@ -15,14 +15,21 @@ class Message extends Model
         'original_name',
         'type'
     ];
-    
+
     protected $appends = ['file_url'];
 
     public function getFileUrlAttribute()
     {
-        return $this->file_path
-            ? asset('storage/' . $this->file_path)
-            : null;
+        if (!$this->file_path) {
+            return null;
+        }
+
+        if (filter_var($this->file_path, FILTER_VALIDATE_URL)) {
+            return $this->file_path;
+        }
+
+        // Otherwise treat as local storage file
+        return asset('storage/' . $this->file_path);
     }
 
     public function thread()

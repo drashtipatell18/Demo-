@@ -17,7 +17,8 @@ use Illuminate\Support\Facades\Validator;
         Route::put('/threads/{id}', [ThreadController::class, 'update']);    // Update thread title
         Route::delete('/threads/{id}', [ThreadController::class, 'destroy']); // Delete thread
         Route::post('/threads/{id}/message', [ThreadController::class, 'sendMessage']);     // user message
-        Route::post('/threads/{id}/response', [ThreadController::class, 'storeResponse']); // model response
+        Route::post('/threads/{id}/response', [ThreadController::class, 'storeResponse']);
+        Route::post('/messages/send', [ThreadController::class, 'sendMessage']); // model response
     });
 
     Route::post('/contact', [ContactFormController::class, 'store']);

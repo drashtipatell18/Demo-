@@ -73,13 +73,14 @@ class ThreadController extends Controller
                 ]);
             }
 
-            /* ---------- FILE LOGIC ---------- */
+            /* ---------- FILE / LINK LOGIC ---------- */
 
             $filePath = null;
             $fileType = null;
             $originalName = null;
             $type = 'text';
 
+            // ✅ Case 1: Real File Upload
             if ($request->hasFile('file')) {
 
                 $file = $request->file('file');
@@ -88,7 +89,16 @@ class ThreadController extends Controller
                 $fileType = $file->getClientMimeType();
                 $originalName = $file->getClientOriginalName();
 
-                $type = str_contains($fileType, 'image') ? 'image' : 'file';
+                $type = $this->detectFileType($fileType);
+            }
+
+            // ✅ Case 2: File Field Contains URL (Text)
+            elseif ($request->filled('file') && filter_var($request->file, FILTER_VALIDATE_URL)) {
+
+                $filePath = $request->file;
+                $originalName = $request->file;
+
+                $type = $this->detectFileType(null, $request->file);
             }
 
             /* ---------- MESSAGE SAVE ---------- */
@@ -126,9 +136,8 @@ class ThreadController extends Controller
         try {
 
             $request->validate([
-                'response' => 'nullable|string',
-                'image_url' => 'nullable|url',
-                'image_base64' => 'nullable|string'
+                'response'   => 'nullable|string',
+                'media_url'  => 'nullable|url',
             ]);
 
             $thread = Thread::findOrFail($id);
@@ -136,16 +145,29 @@ class ThreadController extends Controller
             DB::beginTransaction();
 
             $filePath = null;
+            $fileType = null;
+            $originalName = null;
             $type = 'text';
 
-            if ($request->image_url) {
-                $filePath = $this->storeImageFromUrl($request->image_url);
-                $type = 'image';
+            // Real file upload
+            if ($request->hasFile('file')) {
+
+                $file = $request->file('file');
+
+                $filePath = $file->store('messages', 'public');
+                $fileType = $file->getClientMimeType();
+                $originalName = $file->getClientOriginalName();
+
+                $type = $this->detectFileType($fileType);
             }
 
-            if ($request->image_base64) {
-                $filePath = $this->storeBase64Image($request->image_base64);
-                $type = 'image';
+            // File field contains URL
+            elseif ($request->filled('file') && filter_var($request->file, FILTER_VALIDATE_URL)) {
+
+                $filePath = $request->file;
+                $originalName = $request->file;
+
+                $type = $this->detectFileType(null, $request->file);
             }
 
             $msg = Message::create([
@@ -153,6 +175,8 @@ class ThreadController extends Controller
                 'role' => 'model',
                 'message' => $request->response,
                 'file_path' => $filePath,
+                'file_type' => $fileType,
+                'original_name' => $originalName,
                 'type' => $type
             ]);
 
@@ -262,5 +286,57 @@ class ThreadController extends Controller
         Storage::disk('public')->put($path, $data);
 
         return $path;
+    }
+
+
+    private function detectFileType($mimeType = null, $fileName = null)
+    {
+        if ($mimeType) {
+
+            if (str_contains($mimeType, 'image')) {
+                return 'image';
+            }
+
+            if (str_contains($mimeType, 'video')) {
+                return 'video';
+            }
+
+            if (
+                str_contains($mimeType, 'pdf') ||
+                str_contains($mimeType, 'msword') ||
+                str_contains($mimeType, 'officedocument') ||
+                str_contains($mimeType, 'text')
+            ) {
+                return 'document';
+            }
+
+            return 'file';
+        }
+
+        // If checking from URL (extension based)
+        if ($fileName) {
+
+            $extension = strtolower(pathinfo($fileName, PATHINFO_EXTENSION));
+
+            $images = ['jpg', 'jpeg', 'png', 'webp', 'gif'];
+            $videos = ['mp4', 'mov', 'avi', 'webm'];
+            $documents = ['pdf', 'doc', 'docx', 'xls', 'xlsx', 'txt'];
+
+            if (in_array($extension, $images)) {
+                return 'image';
+            }
+
+            if (in_array($extension, $videos)) {
+                return 'video';
+            }
+
+            if (in_array($extension, $documents)) {
+                return 'document';
+            }
+
+            return 'file';
+        }
+
+        return 'text';
     }
 }

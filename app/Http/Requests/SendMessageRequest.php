@@ -23,7 +23,7 @@ class SendMessageRequest extends FormRequest
     {
         return [
             'message' => 'nullable|string|max:2000',
-            'file' => 'nullable|file|max:5120|mimes:jpg,jpeg,png,pdf,doc,docx'
+            'file' => 'nullable|max:5120'
         ];
     }
 }
