@@ -56,79 +56,86 @@ class ThreadController extends Controller
 
     public function sendMessage(SendMessageRequest $request)
     {
-        try {
+       try {
 
-            DB::beginTransaction();
+        DB::beginTransaction();
 
-            /* ---------- THREAD LOGIC ---------- */
+        /* ---------- THREAD LOGIC ---------- */
 
-            if ($request->thread_id) {
-                $thread = Thread::where('id', $request->thread_id)
-                    ->where('user_id', auth()->id())
-                    ->firstOrFail();
-            } else {
-                $thread = Thread::create([
-                    'user_id' => auth()->id(),
-                    'title' => substr(strip_tags($request->message ?? 'New Chat'), 0, 30)
-                ]);
-            }
-
-            /* ---------- FILE / LINK LOGIC ---------- */
-
-            $filePath = null;
-            $fileType = null;
-            $originalName = null;
-            $type = 'text';
-
-            // ✅ Case 1: Real File Upload
-            if ($request->hasFile('file')) {
-
-                $file = $request->file('file');
-
-                $filePath = $file->store('messages', 'public');
-                $fileType = $file->getClientMimeType();
-                $originalName = $file->getClientOriginalName();
-
-                $type = $this->detectFileType($fileType);
-            }
-
-            // ✅ Case 2: File Field Contains URL (Text)
-            elseif ($request->filled('file') && filter_var($request->file, FILTER_VALIDATE_URL)) {
-
-                $filePath = $request->file;
-                $originalName = $request->file;
-
-                $type = $this->detectFileType(null, $request->file);
-            }
-
-            /* ---------- MESSAGE SAVE ---------- */
-
-            $msg = Message::create([
-                'thread_id' => $thread->id,
-                'role' => 'user',
-                'message' => $request->message,
-                'file_path' => $filePath,
-                'file_type' => $fileType,
-                'original_name' => $originalName,
-                'type' => $type
+        if ($request->thread_id) {
+            $thread = Thread::where('id', $request->thread_id)
+                ->where('user_id', auth()->id())
+                ->firstOrFail();
+        } else {
+            $thread = Thread::create([
+                'user_id' => auth()->id(),
+                'title' => substr(strip_tags($request->message ?? 'New Chat'), 0, 30)
             ]);
-
-            DB::commit();
-
-            return response()->json([
-                'status' => true,
-                'thread_id' => $thread->id,
-                'message' => $msg
-            ], 201);
-        } catch (\Throwable $e) {
-
-            DB::rollBack();
-
-            return response()->json([
-                'status' => false,
-                'error' => $e->getMessage()
-            ], 500);
         }
+
+        /* ---------- FILE / LINK LOGIC ---------- */
+
+        $filePath = null;
+        $fileType = null;
+        $originalName = null;
+        $type = 'text';
+
+        // ✅ Case 1: Real File Upload → Save to public/images, store public URL
+        if ($request->hasFile('file')) {
+
+            $file = $request->file('file');
+            $fileType = $file->getClientMimeType();
+            $originalName = $file->getClientOriginalName();
+
+            // Generate unique filename and move to public/images
+            $fileName = time() . '_' . uniqid() . '.' . $file->getClientOriginalExtension();
+            $file->move(public_path('images'), $fileName);
+
+            // Store only the public URL path
+            $filePath = url('images/' . $fileName);
+
+            $type = $this->detectFileType($fileType);
+        }
+
+        // ✅ Case 2: File Field Contains URL (Text)
+        elseif ($request->filled('file') && filter_var($request->input('file'), FILTER_VALIDATE_URL)) {
+
+            $filePath = $request->input('file');
+            $originalName = $request->input('file');
+
+            $type = $this->detectFileType(null, $request->input('file'));
+        }
+
+        /* ---------- MESSAGE SAVE ---------- */
+
+        $msg = Message::create([
+            'thread_id'     => $thread->id,
+            'role'          => 'user',
+            'message'       => $request->message,
+            'file_path'     => $filePath,
+            'file_type'     => $fileType,
+            'original_name' => $originalName,
+            'type'          => $type
+        ]);
+
+        DB::commit();
+
+        return response()->json([
+            'status'    => true,
+            'thread_id' => $thread->id,
+            'message'   => $msg
+        ], 201);
+
+    } catch (\Throwable $e) {
+
+        DB::rollBack();
+
+        return response()->json([
+            'status' => false,
+            'error'  => $e->getMessage()
+        ], 500);
+    }
+
     }
 
     public function storeResponse(Request $request, $id)
